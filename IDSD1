@@ -101,7 +101,7 @@ input.addEventListener("input", () => {
 // charger Excel automatiquement
 async function loadExcel() {
     try {
-        const res = await fetch("students.xlsx");
+        const res = await fetch("IDSD1.xlsx");
         const buffer = await res.arrayBuffer();
 
         const workbook = XLSX.read(buffer, {type:"array"});
