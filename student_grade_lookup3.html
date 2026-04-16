@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Recherche de Notes d'Étudiants</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            padding: 40px;
+            max-width: 600px;
+            width: 100%;
+        }
+
+        h1 {
+            color: #667eea;
+            text-align: center;
+            margin-bottom: 30px;
+            font-size: 28px;
+        }
+
+        .upload-section {
+            margin-bottom: 30px;
+        }
+
+        .file-input-wrapper {
+            position: relative;
+            overflow: hidden;
+            display: inline-block;
+            width: 100%;
+        }
+
+        .file-input-wrapper input[type=file] {
+            position: absolute;
+            left: -9999px;
+        }
+
+        .file-input-label {
+            display: block;
+            padding: 15px 20px;
+            background: #667eea;
+            color: white;
+            text-align: center;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-weight: 600;
+        }
+
+        .file-input-label:hover {
+            background: #5568d3;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .file-name {
+            margin-top: 10px;
+            color: #666;
+            font-size: 14px;
+            text-align: center;
+        }
+
+        .search-section {
+            margin-bottom: 30px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            color: #333;
+            font-weight: 600;
+        }
+
+        input[type="text"] {
+            width: 100%;
+            padding: 12px 15px;
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            font-size: 16px;
+            transition: all 0.3s;
+        }
+
+        input[type="text"]:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        button {
+            width: 100%;
+            padding: 15px;
+            background: #764ba2;
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            margin-top: 15px;
+        }
+
+        button:hover {
+            background: #653a8a;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(118, 75, 162, 0.4);
+        }
+
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .result {
+            margin-top: 20px;
+            padding: 20px;
+            border-radius: 10px;
+            display: none;
+        }
+
+        .result.success {
+            background: #d4edda;
+            border: 2px solid #c3e6cb;
+            color: #155724;
+            display: block;
+        }
+
+        .result.error {
+            background: #f8d7da;
+            border: 2px solid #f5c6cb;
+            color: #721c24;
+            display: block;
+        }
+
+        .result h3 {
+            margin-bottom: 10px;
+            font-size: 20px;
+        }
+
+        .result p {
+            margin: 5px 0;
+            font-size: 16px;
+        }
+
+        .grade-highlight {
+            font-size: 32px;
+            font-weight: bold;
+            color: #667eea;
+            margin: 15px 0;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📚 Recherche de Notes d'Étudiants</h1>
+        
+        <div class="upload-section">
+            <div class="file-input-wrapper">
+                <input type="file" id="fileInput" accept=".xlsx, .xls" />
+                <label for="fileInput" class="file-input-label">
+                    📁 Choisir un fichier Excel
+                </label>
+            </div>
+            <div class="file-name" id="fileName">Aucun fichier sélectionné</div>
+        </div>
+
+        <div class="search-section">
+            <label for="studentId">Entrer 4 derniers chiffres de votre ID :</label>
+            <input type="text" id="studentId" placeholder="Entrez l'ID de l'étudiant" />
+            <button id="searchBtn" disabled>Rechercher la note</button>
+        </div>
+
+        <div class="result" id="result"></div>
+    </div>
+
+    <script>
+        let studentsData = [];
+
+        const fileInput = document.getElementById('fileInput');
+        const fileName = document.getElementById('fileName');
+        const studentIdInput = document.getElementById('studentId');
+		
+		// valeur par défaut
+		studentIdInput.value = "****";
+
+		// empêcher la suppression de ****
+		studentIdInput.addEventListener("keydown", (e) => {
+			if (studentIdInput.selectionStart <= 4 &&
+				(e.key === "Backspace" || e.key === "Delete")) {
+				e.preventDefault();
+			}
+		});
+
+		// forcer l’écriture après ****
+		studentIdInput.addEventListener("input", () => {
+			if (!studentIdInput.value.startsWith("****")) {
+				studentIdInput.value = "****";
+			}
+
+			// garder uniquement 4 chiffres après ****
+			const digits = studentIdInput.value.slice(4).replace(/\D/g, "").slice(0, 4);
+			studentIdInput.value = "****" + digits;
+		});
+		
+		
+        const searchBtn = document.getElementById('searchBtn');
+        const resultDiv = document.getElementById('result');
+
+        fileInput.addEventListener('change', handleFileUpload);
+        searchBtn.addEventListener('click', searchStudent);
+        studentIdInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter' && !searchBtn.disabled) {
+                searchStudent();
+            }
+        });
+
+        function handleFileUpload(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            fileName.textContent = `Fichier: ${file.name}`;
+            
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const data = new Uint8Array(e.target.result);
+                    const workbook = XLSX.read(data, { type: 'array' });
+                    const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+                    const jsonData = XLSX.utils.sheet_to_json(firstSheet);
+                    
+                    studentsData = jsonData;
+                    searchBtn.disabled = false;
+                    
+                    showResult('success', 
+                        `✅ Fichier chargé avec succès!`, 
+                        `${studentsData.length} étudiant(s) trouvé(s)`
+                    );
+                } catch (error) {
+                    showResult('error', 
+                        '❌ Erreur de lecture du fichier', 
+                        'Veuillez vérifier le format du fichier Excel'
+                    );
+                }
+            };
+            reader.readAsArrayBuffer(file);
+        }
+
+        function searchStudent() {
+            const searchId = studentIdInput.value.trim();
+			//const searchId = "****" + studentIdInput.value.trim();
+            //searchId ="****" +searchId;
+            if (!searchId) {
+                showResult('error', '⚠️ Erreur', 'Veuillez entrer un ID');
+                return;
+            }
+
+            const student = studentsData.find(s => 
+                String(s.ID).toLowerCase() === searchId.toLowerCase() ||
+                String(s.id).toLowerCase() === searchId.toLowerCase()
+            );
+
+            if (student) {
+                const note = student.Note || student.note || student.NOTE || 'Non disponible';
+                const nom = student.Nom || student.nom || student.NOM || '';
+                const prenom = student.Prenom || student.prenom || student.PRENOM || '';
+                
+                let resultHTML = `<h3>✅ Étudiant trouvé</h3>`;
+                if (nom || prenom) {
+                    resultHTML += `<p><strong>Nom:</strong> ${nom} ${prenom}</p>`;
+                }
+                resultHTML += `<p><strong>ID:</strong> ${searchId}</p>`;
+                resultHTML += `<div class="grade-highlight">${note}</div>`;
+                
+                resultDiv.className = 'result success';
+                resultDiv.innerHTML = resultHTML;
+            } else {
+                showResult('error', 
+                    '❌ Étudiant non trouvé', 
+                    `Aucun étudiant avec l'ID "${searchId}" dans le fichier`
+                );
+            }
+        }
+
+        function showResult(type, title, message) {
+            resultDiv.className = `result ${type}`;
+            resultDiv.innerHTML = `<h3>${title}</h3><p>${message}</p>`;
+        }
+    </script>
+</body>
+</html>
