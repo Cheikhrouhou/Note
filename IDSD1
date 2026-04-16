@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Recherche Notes Étudiants</title>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+
+<style>
+body {
+    font-family: Arial;
+    background: linear-gradient(135deg,#667eea,#764ba2);
+    display:flex;
+    justify-content:center;
+    align-items:center;
+    height:100vh;
+}
+
+.container {
+    background:white;
+    padding:30px;
+    border-radius:15px;
+    width:400px;
+    box-shadow:0 10px 30px rgba(0,0,0,0.3);
+}
+
+h1 {
+    text-align:center;
+    color:#667eea;
+}
+
+input {
+    width:100%;
+    padding:10px;
+    margin-top:10px;
+    border-radius:8px;
+    border:1px solid #ccc;
+}
+
+button {
+    width:100%;
+    margin-top:15px;
+    padding:10px;
+    border:none;
+    border-radius:8px;
+    background:#764ba2;
+    color:white;
+    cursor:pointer;
+}
+
+button:disabled {
+    background:#ccc;
+}
+
+.result {
+    margin-top:20px;
+    padding:10px;
+    border-radius:8px;
+}
+
+.success { background:#d4edda; }
+.error { background:#f8d7da; }
+
+.grade {
+    font-size:30px;
+    text-align:center;
+    color:#667eea;
+    margin-top:10px;
+}
+</style>
+</head>
+
+<body>
+
+<div class="container">
+<h1>📚 Notes Étudiants</h1>
+
+<input id="studentId" value="****" maxlength="8">
+<button id="searchBtn" disabled>Rechercher</button>
+
+<div id="result"></div>
+</div>
+
+<script>
+
+let studentsData = [];
+
+const input = document.getElementById("studentId");
+const btn = document.getElementById("searchBtn");
+const result = document.getElementById("result");
+
+// garder ****
+input.addEventListener("input", () => {
+    if (!input.value.startsWith("****")) input.value = "****";
+
+    let digits = input.value.slice(4).replace(/\D/g,"").slice(0,4);
+    input.value = "****" + digits;
+});
+
+// charger Excel automatiquement
+async function loadExcel() {
+    try {
+        const res = await fetch("students.xlsx");
+        const buffer = await res.arrayBuffer();
+
+        const workbook = XLSX.read(buffer, {type:"array"});
+        const sheet = workbook.Sheets[workbook.SheetNames[0]];
+
+        studentsData = XLSX.utils.sheet_to_json(sheet);
+
+        btn.disabled = false;
+
+        show("success", "✅ Fichier chargé (" + studentsData.length + " étudiants)");
+    } catch (e) {
+        show("error", "❌ Erreur chargement Excel");
+    }
+}
+
+// recherche
+btn.addEventListener("click", () => {
+    const id = input.value.trim();
+
+    const student = studentsData.find(s =>
+        String(s.ID).toLowerCase() === id.toLowerCase()
+    );
+
+    if (student) {
+        result.className = "result success";
+        result.innerHTML = `
+            <h3>Étudiant trouvé</h3>
+            <p>${student.Nom || ""} ${student.Prenom || ""}</p>
+            <p>ID: ${id}</p>
+            <div class="grade">${student.Note || "N/A"}</div>
+        `;
+    } else {
+        show("error","❌ Étudiant non trouvé");
+    }
+});
+
+function show(type,msg){
+    result.className = "result " + type;
+    result.innerHTML = "<p>"+msg+"</p>";
+}
+
+window.onload = loadExcel;
+
+</script>
+
+</body>
+</html>
